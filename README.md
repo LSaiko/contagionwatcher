@@ -2,7 +2,7 @@
 
 > Real-time U.S. disease surveillance — CDC data, no login required.
 
-**[→ Open Live Dashboard](https://contagionwatcher.health)**
+**[→ View Showcase](https://lsaiko.github.io/contagionwatcher/)**
 
 ---
 
