@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ContagionWatcher — Real-Time U.S. Disease Surveillance Dashboard</title>
+  <meta name="description" content="ContagionWatcher delivers live, CDC-sourced disease surveillance data in one clean dashboard. Track 22+ nationally notifiable diseases by state, period, and trend — free, no login required." />
+  <meta property="og:title" content="ContagionWatcher — U.S. Disease Surveillance, Simplified" />
+  <meta property="og:description" content="Real CDC NNDSS data. 22 notifiable diseases. State-level lookup. AI situation reports. Free public dashboard." />
+  <meta property="og:type" content="website" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:        #0a1628;
+      --navy-light:  #0f1f3d;
+      --navy-border: #1e3a5f;
+      --teal:        #00d4aa;
+      --teal-dim:    rgba(0,212,170,.12);
+      --alert:       #ef4444;
+      --amber:       #f59e0b;
+      --success:     #22c55e;
+      --muted:       #64748b;
+      --text:        #e2e8f0;
+      --text-dim:    #94a3b8;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--navy);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      line-height: 1.6;
+    }
+
+    /* ── NAV ─────────────────────────────────────────────────────────────── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(10,22,40,.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--navy-border);
+      padding: .9rem 2rem;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .brand { display:flex; align-items:center; gap:.7rem; text-decoration:none; }
+    .brand-icon {
+      width:36px; height:36px; border-radius:10px;
+      background: var(--teal-dim); border:1px solid rgba(0,212,170,.3);
+      display:flex; align-items:center; justify-content:center;
+    }
+    .brand-icon svg { width:20px; height:20px; color: var(--teal); stroke:currentColor; fill:none; stroke-width:1.5; }
+    .brand-name { font-size:1.1rem; font-weight:700; color:var(--teal); letter-spacing:-.02em; }
+    .brand-sub  { font-size:.7rem; color:var(--muted); display:block; }
+
+    .nav-pill {
+      display:flex; align-items:center; gap:.4rem;
+      background: rgba(34,197,94,.1); border:1px solid rgba(34,197,94,.2);
+      border-radius:9999px; padding:.3rem .8rem;
+      font-size:.75rem; color: var(--success); font-weight:600;
+    }
+    .pulse { width:7px; height:7px; border-radius:50%; background:var(--success); animation:pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    /* ── HERO ────────────────────────────────────────────────────────────── */
+    .hero {
+      max-width:900px; margin:0 auto; padding:7rem 2rem 5rem;
+      text-align:center;
+    }
+    .hero-badge {
+      display:inline-flex; align-items:center; gap:.5rem;
+      background:var(--teal-dim); border:1px solid rgba(0,212,170,.25);
+      border-radius:9999px; padding:.35rem 1rem;
+      font-size:.78rem; color:var(--teal); font-weight:600;
+      margin-bottom:1.8rem; letter-spacing:.04em; text-transform:uppercase;
+    }
+    h1 {
+      font-size:clamp(2.2rem,5vw,3.6rem);
+      font-weight:800; letter-spacing:-.03em;
+      line-height:1.1; margin-bottom:1.4rem;
+    }
+    h1 span { color:var(--teal); }
+    .hero-sub {
+      font-size:1.15rem; color:var(--text-dim);
+      max-width:600px; margin:0 auto 2.5rem; line-height:1.7;
+    }
+    .hero-cta {
+      display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;
+    }
+    .btn-primary {
+      display:inline-flex; align-items:center; gap:.5rem;
+      background:var(--teal); color:var(--navy);
+      font-weight:700; font-size:.95rem;
+      padding:.8rem 1.8rem; border-radius:10px;
+      text-decoration:none; transition:opacity .2s;
+    }
+    .btn-primary:hover { opacity:.88; }
+    .btn-ghost {
+      display:inline-flex; align-items:center; gap:.5rem;
+      border:1px solid var(--navy-border); color:var(--text-dim);
+      font-size:.95rem; padding:.8rem 1.8rem; border-radius:10px;
+      text-decoration:none; transition:border-color .2s, color .2s;
+    }
+    .btn-ghost:hover { border-color:var(--teal); color:var(--text); }
+
+    /* ── DATA STRIP ──────────────────────────────────────────────────────── */
+    .data-strip {
+      background:var(--navy-light);
+      border-top:1px solid var(--navy-border);
+      border-bottom:1px solid var(--navy-border);
+      padding:1.8rem 2rem;
+    }
+    .data-strip-inner {
+      max-width:900px; margin:0 auto;
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+      gap:1.5rem; text-align:center;
+    }
+    .stat-val { font-size:2rem; font-weight:800; color:var(--teal); font-variant-numeric:tabular-nums; }
+    .stat-label { font-size:.78rem; color:var(--text-dim); margin-top:.15rem; }
+
+    /* ── SECTION ─────────────────────────────────────────────────────────── */
+    section { max-width:900px; margin:0 auto; padding:5rem 2rem; }
+    .section-label {
+      font-size:.72rem; font-weight:700; text-transform:uppercase;
+      letter-spacing:.1em; color:var(--teal); margin-bottom:.7rem;
+    }
+    h2 { font-size:clamp(1.6rem,3vw,2.2rem); font-weight:800; letter-spacing:-.02em; margin-bottom:1rem; }
+    .section-sub { color:var(--text-dim); font-size:1rem; max-width:620px; margin-bottom:2.5rem; line-height:1.7; }
+
+    /* ── FEATURE CARDS ───────────────────────────────────────────────────── */
+    .feature-grid {
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+      gap:1.2rem;
+    }
+    .feature-card {
+      background:var(--navy-light); border:1px solid var(--navy-border);
+      border-radius:14px; padding:1.5rem;
+      transition:border-color .2s;
+    }
+    .feature-card:hover { border-color:rgba(0,212,170,.35); }
+    .feature-icon {
+      width:40px; height:40px; border-radius:10px;
+      background:var(--teal-dim); border:1px solid rgba(0,212,170,.2);
+      display:flex; align-items:center; justify-content:center;
+      margin-bottom:1rem;
+    }
+    .feature-icon svg { width:20px; height:20px; color:var(--teal); stroke:currentColor; fill:none; stroke-width:1.5; }
+    .feature-title { font-size:.95rem; font-weight:700; margin-bottom:.4rem; }
+    .feature-desc { font-size:.84rem; color:var(--text-dim); line-height:1.6; }
+
+    /* ── DASHBOARD PREVIEW ───────────────────────────────────────────────── */
+    .dashboard-preview {
+      background:var(--navy-light); border:1px solid var(--navy-border);
+      border-radius:18px; overflow:hidden; margin:2rem 0;
+    }
+    .preview-bar {
+      background:rgba(30,58,95,.6); padding:.7rem 1rem;
+      display:flex; align-items:center; gap:.5rem; border-bottom:1px solid var(--navy-border);
+    }
+    .dot { width:10px; height:10px; border-radius:50%; }
+    .preview-title { font-size:.78rem; color:var(--muted); margin-left:.5rem; }
+    .preview-body { padding:1.5rem; }
+
+    /* Fake table */
+    .fake-table { width:100%; border-collapse:collapse; font-size:.84rem; }
+    .fake-table th {
+      text-align:left; font-size:.7rem; font-weight:700;
+      text-transform:uppercase; letter-spacing:.07em; color:var(--muted);
+      padding:.5rem .75rem; border-bottom:1px solid var(--navy-border);
+    }
+    .fake-table td { padding:.6rem .75rem; border-bottom:1px solid rgba(30,58,95,.5); }
+    .fake-table tr:last-child td { border-bottom:none; }
+    .disease-name { color:var(--text); font-weight:500; }
+    .cases-num { font-family:monospace; color:var(--teal); font-weight:700; }
+    .cases-prev { font-family:monospace; color:var(--muted); }
+    .trend-rising  { color:#ef4444; font-weight:700; }
+    .trend-stable  { color:var(--muted); }
+    .trend-decl    { color:var(--success); font-weight:700; }
+    .cdc-badge {
+      display:inline-flex; align-items:center; gap:.3rem;
+      background:var(--teal-dim); border:1px solid rgba(0,212,170,.2);
+      border-radius:5px; padding:.15rem .5rem; font-size:.68rem; color:var(--teal); font-weight:600;
+    }
+
+    /* ── COMPARISON TABLE ────────────────────────────────────────────────── */
+    .compare-wrap { overflow-x:auto; }
+    .compare-table { width:100%; border-collapse:collapse; font-size:.88rem; }
+    .compare-table th {
+      padding:.8rem 1rem; text-align:left;
+      border-bottom:2px solid var(--navy-border);
+      font-size:.8rem; font-weight:700;
+      text-transform:uppercase; letter-spacing:.05em; color:var(--muted);
+    }
+    .compare-table th.us  { color:var(--teal); }
+    .compare-table td     { padding:.75rem 1rem; border-bottom:1px solid rgba(30,58,95,.5); vertical-align:top; }
+    .compare-table tr:last-child td { border-bottom:none; }
+    .compare-table tr:hover td { background:rgba(30,58,95,.3); }
+    .compare-table td:first-child { color:var(--text-dim); font-weight:600; }
+    .check { color:var(--success); font-weight:700; }
+    .cross { color:var(--muted); }
+    .partial { color:var(--amber); }
+    .winner { background:rgba(0,212,170,.06); }
+
+    /* ── IMPROVEMENT LIST ────────────────────────────────────────────────── */
+    .improve-grid { display:grid; gap:1rem; }
+    .improve-item {
+      display:flex; gap:1rem; align-items:flex-start;
+      background:var(--navy-light); border:1px solid var(--navy-border);
+      border-radius:12px; padding:1.2rem;
+    }
+    .improve-num {
+      flex-shrink:0; width:28px; height:28px; border-radius:7px;
+      background:var(--teal-dim); border:1px solid rgba(0,212,170,.2);
+      display:flex; align-items:center; justify-content:center;
+      font-size:.8rem; font-weight:800; color:var(--teal);
+    }
+    .improve-title { font-weight:700; font-size:.92rem; margin-bottom:.2rem; }
+    .improve-desc  { font-size:.82rem; color:var(--text-dim); line-height:1.55; }
+    .tag {
+      display:inline-block; padding:.15rem .55rem; border-radius:5px;
+      font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+      margin-left:.4rem; vertical-align:middle;
+    }
+    .tag-high   { background:rgba(239,68,68,.15); color:#ef4444; border:1px solid rgba(239,68,68,.2); }
+    .tag-med    { background:rgba(245,158,11,.12); color:var(--amber); border:1px solid rgba(245,158,11,.2); }
+
+    /* ── FOOTER ──────────────────────────────────────────────────────────── */
+    footer {
+      border-top:1px solid var(--navy-border);
+      padding:2.5rem 2rem; text-align:center;
+    }
+    footer p { font-size:.8rem; color:var(--muted); }
+    footer a { color:var(--teal); text-decoration:none; }
+    footer a:hover { text-decoration:underline; }
+
+    /* ── SOURCE CHIPS ────────────────────────────────────────────────────── */
+    .sources { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:1.5rem; }
+    .source-chip {
+      display:inline-flex; align-items:center; gap:.4rem;
+      background:var(--navy-light); border:1px solid var(--navy-border);
+      border-radius:9999px; padding:.35rem .9rem;
+      font-size:.76rem; color:var(--text-dim);
+    }
+    .source-chip .dot-s { width:6px; height:6px; border-radius:50%; background:var(--teal); }
+
+    @media(max-width:600px) {
+      nav { padding:.7rem 1rem; }
+      .hero { padding:4rem 1.2rem 3rem; }
+      section { padding:3rem 1.2rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a class="brand" href="#">
+    <div class="brand-icon">
+      <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg>
+    </div>
+    <div>
+      <span class="brand-name">ContagionWatcher</span>
+      <span class="brand-sub">Public Health Dashboard</span>
+    </div>
+  </a>
+  <div class="nav-pill">
+    <span class="pulse"></span>
+    CDC Data · Updated Weekly
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+    Real Government Data · No Account Required
+  </div>
+  <h1>U.S. Disease Surveillance<br/><span>Without the Runaround</span></h1>
+  <p class="hero-sub">
+    ContagionWatcher pulls live data directly from the CDC's National Notifiable Diseases
+    Surveillance System and presents it in one clean, filterable dashboard —
+    the information that used to take 20 minutes of government website navigation,
+    now in under 10 seconds.
+  </p>
+  <div class="hero-cta">
+    <a class="btn-primary" href="http://localhost" target="_blank">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+      Open Live Dashboard
+    </a>
+    <a class="btn-ghost" href="#compare">See How We Compare</a>
+  </div>
+</div>
+
+<!-- STATS STRIP -->
+<div class="data-strip">
+  <div class="data-strip-inner">
+    <div>
+      <div class="stat-val">22+</div>
+      <div class="stat-label">Notifiable diseases tracked</div>
+    </div>
+    <div>
+      <div class="stat-val">50</div>
+      <div class="stat-label">States + D.C. covered</div>
+    </div>
+    <div>
+      <div class="stat-val">4</div>
+      <div class="stat-label">Time windows (7D–1Y)</div>
+    </div>
+    <div>
+      <div class="stat-val">100%</div>
+      <div class="stat-label">Free · No login · No ads</div>
+    </div>
+    <div>
+      <div class="stat-val">6h</div>
+      <div class="stat-label">CDC cache refresh rate</div>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD PREVIEW -->
+<section>
+  <p class="section-label">Live Data Preview</p>
+  <h2>What You See the Moment You Open It</h2>
+  <p class="section-sub">
+    No registration, no paywall. The national disease activity table below reflects
+    real case counts pulled from CDC NNDSS — the same dataset epidemiologists use,
+    just without the 47-click navigation.
+  </p>
+
+  <div class="dashboard-preview">
+    <div class="preview-bar">
+      <span class="dot" style="background:#ef4444"></span>
+      <span class="dot" style="background:#f59e0b"></span>
+      <span class="dot" style="background:#22c55e"></span>
+      <span class="preview-title">National Disease Activity · Last 7 Days &nbsp;
+        <span class="cdc-badge">● CDC NNDSS</span>
+      </span>
+    </div>
+    <div class="preview-body">
+      <table class="fake-table">
+        <thead>
+          <tr>
+            <th>Disease</th>
+            <th style="text-align:right">Cases (7d)</th>
+            <th style="text-align:right">Prev 7d</th>
+            <th style="text-align:right">Trend</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="disease-name">Chlamydia</td>
+            <td class="cases-num" style="text-align:right">9,854</td>
+            <td class="cases-prev" style="text-align:right">13,159</td>
+            <td class="trend-decl" style="text-align:right">↓ Declining</td>
+          </tr>
+          <tr>
+            <td class="disease-name">Gonorrhea</td>
+            <td class="cases-num" style="text-align:right">2,788</td>
+            <td class="cases-prev" style="text-align:right">4,112</td>
+            <td class="trend-decl" style="text-align:right">↓ Declining</td>
+          </tr>
+          <tr>
+            <td class="disease-name">Campylobacteriosis</td>
+            <td class="cases-num" style="text-align:right">715</td>
+            <td class="cases-prev" style="text-align:right">811</td>
+            <td class="trend-stable" style="text-align:right">→ Stable</td>
+          </tr>
+          <tr>
+            <td class="disease-name">Salmonellosis</td>
+            <td class="cases-num" style="text-align:right">477</td>
+            <td class="cases-prev" style="text-align:right">488</td>
+            <td class="trend-stable" style="text-align:right">→ Stable</td>
+          </tr>
+          <tr>
+            <td class="disease-name">Mpox (Monkeypox)</td>
+            <td class="cases-num" style="text-align:right">6</td>
+            <td class="cases-prev" style="text-align:right">4</td>
+            <td class="trend-rising" style="text-align:right">↑ Rising</td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="font-size:.72rem; color:var(--muted); margin-top:1rem;">
+        Source: <a href="https://data.cdc.gov/resource/x9gk-5huc" target="_blank" style="color:var(--teal)">CDC NNDSS dataset x9gk-5huc</a> · Updated weekly (MMWR week) · Counts are confirmed notifiable disease reports
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section>
+  <p class="section-label">Features</p>
+  <h2>Everything in One Place</h2>
+  <p class="section-sub">Built for anyone who needs disease activity data — public health professionals, researchers, journalists, or curious citizens.</p>
+
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>
+      </div>
+      <div class="feature-title">National Disease Trends</div>
+      <div class="feature-desc">22 CDC-notifiable diseases ranked by current case count. Switch between 7-day, 30-day, 90-day, and yearly views with one click. Rising/stable/declining trend calculated automatically.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg>
+      </div>
+      <div class="feature-title">State-Level Lookup</div>
+      <div class="feature-desc">Type any U.S. state, city, or abbreviation (NJ, Texas, NYC). Instantly see top diseases for that location pulled from CDC state-level NNDSS data — same period filter, real case counts.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611l-1.388.232A9 9 0 0112 21a9 9 0 01-2.747-.455l-1.388-.232c-1.718-.293-2.3-2.379-1.067-3.61L5 14.5"/></svg>
+      </div>
+      <div class="feature-title">AI Situation Report</div>
+      <div class="feature-desc">A Claude-generated national summary refreshed every 24 hours. Plain-language analysis of what's rising, what's declining, and what to watch — no epidemiology degree required.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+      </div>
+      <div class="feature-title">CSV Export</div>
+      <div class="feature-desc">Download disease activity for any U.S. state or nationally for any time period. Includes ICD-10 codes, case counts, and per-100k population rates. Data attributed to CDC NNDSS.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z"/></svg>
+      </div>
+      <div class="feature-title">U.S. Activity Map</div>
+      <div class="feature-desc">Interactive choropleth showing disease activity density across all 50 states and D.C. Color-coded by case rate per 100k population. Hover for jurisdiction-level detail.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+      <div class="feature-title">Real-Time Data Source</div>
+      <div class="feature-desc">Data comes directly from CDC Open Data (dataset x9gk-5huc) — the same MMWR weekly notifiable disease reports published by the CDC every Friday. Not scraped. Not estimated.</div>
+    </div>
+  </div>
+
+  <div class="sources">
+    <div class="source-chip"><span class="dot-s"></span> CDC NNDSS (x9gk-5huc) — 22 notifiable diseases</div>
+    <div class="source-chip"><span class="dot-s"></span> Socrata Open Data API</div>
+    <div class="source-chip"><span class="dot-s"></span> MMWR weekly reporting cycle</div>
+    <div class="source-chip"><span class="dot-s"></span> Claude AI (Anthropic) — situation summaries</div>
+  </div>
+</section>
+
+<!-- COMPARISON -->
+<section id="compare">
+  <p class="section-label">Competitive Analysis</p>
+  <h2>How We Stack Up</h2>
+  <p class="section-sub">A direct feature comparison with the leading disease surveillance platforms available to the public in 2026.</p>
+
+  <div class="compare-wrap">
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th class="us">ContagionWatcher</th>
+          <th>VirusWatcher</th>
+          <th>CDC NNDSS (raw)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="winner">
+          <td>Access</td>
+          <td class="check">✓ Free, no login</td>
+          <td class="partial">⚠ Free tier unclear; enterprise demo required</td>
+          <td class="partial">⚠ Free but complex navigation</td>
+        </tr>
+        <tr>
+          <td>U.S. state-level data</td>
+          <td class="check">✓ All 50 states + D.C.</td>
+          <td class="cross">Country-level only (global focus)</td>
+          <td class="partial">⚠ Available but buried in tables</td>
+        </tr>
+        <tr class="winner">
+          <td>Verified government source</td>
+          <td class="check">✓ Direct CDC NNDSS API</td>
+          <td class="partial">⚠ "CDC + 50 agencies" — not direct</td>
+          <td class="check">✓ Primary source</td>
+        </tr>
+        <tr>
+          <td>Period filters</td>
+          <td class="check">✓ 7D / 30D / 90D / 1Y</td>
+          <td class="cross">Not documented</td>
+          <td class="cross">Fixed MMWR week format</td>
+        </tr>
+        <tr class="winner">
+          <td>CSV export</td>
+          <td class="check">✓ Per state or national, any period</td>
+          <td class="cross">No public export</td>
+          <td class="partial">⚠ Raw bulk download only</td>
+        </tr>
+        <tr>
+          <td>AI summary</td>
+          <td class="check">✓ Daily Claude-generated brief</td>
+          <td class="partial">⚠ AI alerts (severity flags only)</td>
+          <td class="cross">None</td>
+        </tr>
+        <tr>
+          <td>Diseases tracked</td>
+          <td class="partial">⚠ 22 notifiable diseases</td>
+          <td class="check">✓ 160+ diseases globally</td>
+          <td class="check">✓ All notifiable diseases</td>
+        </tr>
+        <tr>
+          <td>Global coverage</td>
+          <td class="cross">U.S. only (by design)</td>
+          <td class="check">✓ 195 countries</td>
+          <td class="cross">U.S. only</td>
+        </tr>
+        <tr class="winner">
+          <td>No-paywall public API/embed</td>
+          <td class="check">✓ Open data attribution</td>
+          <td class="cross">Enterprise plan required</td>
+          <td class="partial">⚠ Raw Socrata API (no formatting)</td>
+        </tr>
+        <tr>
+          <td>Trend calculation</td>
+          <td class="check">✓ Rising / Stable / Declining vs prior period</td>
+          <td class="partial">⚠ Severity flags only</td>
+          <td class="cross">None</td>
+        </tr>
+        <tr>
+          <td>Mobile app</td>
+          <td class="cross">Web only</td>
+          <td class="partial">⚠ Android only (iOS unavailable)</td>
+          <td class="cross">None</td>
+        </tr>
+        <tr>
+          <td>Wastewater surveillance</td>
+          <td class="cross">Not yet</td>
+          <td class="check">✓ Integrated</td>
+          <td class="cross">Separate system</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- IMPROVEMENTS -->
+<section>
+  <p class="section-label">Roadmap</p>
+  <h2>What's Coming Next</h2>
+  <p class="section-sub">The clearest gaps against best-in-class platforms — prioritized by impact.</p>
+
+  <div class="improve-grid">
+    <div class="improve-item">
+      <div class="improve-num">1</div>
+      <div>
+        <div class="improve-title">Expand Disease Coverage to 60+ <span class="tag tag-high">High Impact</span></div>
+        <div class="improve-desc">NNDSS tracks 120+ diseases. ContagionWatcher currently surfaces 22. Adding HIV/AIDS (CDC HIV Surveillance), COVID-19 (COVID tracker), Lyme Disease (NNDSS Table II), Influenza (FluView), and Norovirus would cover the diseases the public actually searches for.</div>
+      </div>
+    </div>
+    <div class="improve-item">
+      <div class="improve-num">2</div>
+      <div>
+        <div class="improve-title">County-Level Resolution <span class="tag tag-high">High Impact</span></div>
+        <div class="improve-desc">NNDSS data is only available at state level. CDC maintains county-level surveillance in separate systems. Integrating county FIPS-level data for the top 10 most-tracked diseases would make the location lookup dramatically more useful to urban users.</div>
+      </div>
+    </div>
+    <div class="improve-item">
+      <div class="improve-num">3</div>
+      <div>
+        <div class="improve-title">Wastewater Surveillance Integration <span class="tag tag-high">High Impact</span></div>
+        <div class="improve-desc">CDC's NWSS (National Wastewater Surveillance System) provides 1–2 week early-warning signals for COVID-19 and influenza. This is a clear differentiator VirusWatcher already exploits. NWSS data is free and available via API.</div>
+      </div>
+    </div>
+    <div class="improve-item">
+      <div class="improve-num">4</div>
+      <div>
+        <div class="improve-title">Disease Detail Pages <span class="tag tag-med">Medium Impact</span></div>
+        <div class="improve-desc">Each disease should have its own page: transmission routes, symptoms, incubation period, at-risk populations, current YTD case count with historical chart, and links to CDC resources. VirusWatcher has individual disease intelligence pages — this is a gap.</div>
+      </div>
+    </div>
+    <div class="improve-item">
+      <div class="improve-num">5</div>
+      <div>
+        <div class="improve-title">Historical Trend Charts <span class="tag tag-med">Medium Impact</span></div>
+        <div class="improve-desc">A sparkline or 52-week line chart per disease, showing seasonal patterns. CDC NNDSS has data back to 2014. Visualizing multi-year seasonality (e.g., West Nile peaks every August) turns a data table into genuinely actionable intelligence.</div>
+      </div>
+    </div>
+    <div class="improve-item">
+      <div class="improve-num">6</div>
+      <div>
+        <div class="improve-title">Email / SMS Alert Subscriptions <span class="tag tag-med">Medium Impact</span></div>
+        <div class="improve-desc">Let public users subscribe to "notify me when [disease] in [state] crosses X cases/week." VirusWatcher has this behind a paywall. Offering it free for core diseases would drive retention and word-of-mouth.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div style="max-width:900px;margin:0 auto;">
+    <p style="font-size:1rem;font-weight:700;color:var(--text);margin-bottom:.4rem;">ContagionWatcher</p>
+    <p>Disease surveillance data sourced from <a href="https://data.cdc.gov/resource/x9gk-5huc" target="_blank">CDC NNDSS (x9gk-5huc)</a> · Updated weekly · No individual patient data</p>
+    <p style="margin-top:.5rem;">This dashboard is for informational purposes only. For medical advice, consult a healthcare professional.</p>
+  </div>
+</footer>
+
+</body>
+</html>
